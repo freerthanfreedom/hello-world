@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Todo — Multi-Agent</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --card: #21253a;
+  --border: #2e3350;
+  --accent: #6c8ef5;
+  --accent-h: #8aa4ff;
+  --green: #48c78e;
+  --yellow: #f7c948;
+  --red: #f26b6b;
+  --purple: #c084fc;
+  --text: #e2e8f0;
+  --muted: #8892b0;
+  --radius: 10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-weight:800;font-size:1.1rem;background:linear-gradient(90deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:flex;align-items:center;gap:8px}
+.logo svg{-webkit-text-fill-color:initial}
+.top-stats{display:flex;gap:20px}
+.top-stat{text-align:center;font-size:0.78rem;color:var(--muted)}
+.top-stat strong{display:block;font-size:1.1rem;font-weight:700;color:var(--text);line-height:1.1}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:280px 1fr;flex:1;gap:0}
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}}
+
+/* ── Sidebar ── */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:8px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:none;background:none;color:var(--muted);font-size:0.9rem;cursor:pointer;width:100%;text-align:left;transition:.15s}
+.nav-btn:hover{background:var(--card);color:var(--text)}
+.nav-btn.active{background:rgba(108,142,245,.15);color:var(--accent);font-weight:600}
+.nav-icon{width:18px;text-align:center;flex-shrink:0}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 0}
+.filter-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:4px 12px}
+.priority-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* ── Main ── */
+.main{padding:24px;overflow-y:auto;max-height:calc(100vh - 56px)}
+
+/* ── NLP Bar ── */
+.nlp-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:24px;display:flex;gap:10px;align-items:center}
+.nlp-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:0.9rem;outline:none;transition:.2s}
+.nlp-input:focus{border-color:var(--accent);background:#1e2240}
+.nlp-input::placeholder{color:var(--muted)}
+.nlp-hint{font-size:0.75rem;color:var(--muted);margin-top:8px}
+.nlp-hint span{color:var(--accent)}
+
+/* ── Section header ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-weight:700;font-size:1rem}
+.section-actions{display:flex;gap:8px}
+
+/* ── Buttons ── */
+.btn{border:none;border-radius:7px;padding:8px 16px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-h)}
+.btn-ghost{background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
+.btn-sm{padding:5px 10px;font-size:0.78rem}
+.btn-icon{padding:6px;border-radius:6px}
+
+/* ── Todo card ── */
+.todo-list{display:flex;flex-direction:column;gap:8px}
+.todo-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:flex-start;gap:12px;transition:.15s;animation:slideIn .2s ease}
+.todo-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(108,142,245,.2)}
+.todo-card.completed{opacity:.5}
+.todo-card.completed .todo-title{text-decoration:line-through;color:var(--muted)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+.todo-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);background:none;cursor:pointer;flex-shrink:0;margin-top:1px;transition:.15s;display:flex;align-items:center;justify-content:center}
+.todo-check:hover{border-color:var(--green)}
+.todo-check.checked{background:var(--green);border-color:var(--green)}
+.todo-check.checked::after{content:'✓';color:#fff;font-size:11px;font-weight:700}
+
+.todo-body{flex:1;min-width:0}
+.todo-title{font-size:0.92rem;font-weight:500;margin-bottom:4px;word-break:break-word}
+.todo-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.priority-badge{font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.3px}
+.p-high{background:rgba(242,107,107,.15);color:var(--red);border:1px solid rgba(242,107,107,.3)}
+.p-medium{background:rgba(247,201,72,.15);color:var(--yellow);border:1px solid rgba(247,201,72,.3)}
+.p-low{background:rgba(72,199,142,.15);color:var(--green);border:1px solid rgba(72,199,142,.3)}
+.due-badge{font-size:0.72rem;color:var(--muted);display:flex;align-items:center;gap:3px}
+.due-badge.overdue{color:var(--red)}
+.tag-chip{font-size:0.7rem;background:rgba(108,142,245,.1);border:1px solid rgba(108,142,245,.25);color:var(--accent);padding:1px 6px;border-radius:3px}
+
+.todo-actions{display:flex;gap:4px;flex-shrink:0;opacity:0;transition:.15s}
+.todo-card:hover .todo-actions{opacity:1}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:5px;font-size:14px;line-height:1;transition:.15s}
+.icon-btn:hover{background:var(--surface);color:var(--text)}
+.icon-btn.del:hover{color:var(--red)}
+
+/* ── Modal ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;backdrop-filter:blur(4px)}
+.modal-backdrop.hidden{display:none}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal h2{font-size:1.1rem;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:0.8rem;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.form-control{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--text);font-size:0.88rem;outline:none;transition:.2s;font-family:inherit}
+.form-control:focus{border-color:var(--accent)}
+textarea.form-control{resize:vertical;min-height:80px}
+select.form-control option{background:var(--card)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
+
+/* ── Stats panel ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.stat-num{font-size:1.8rem;font-weight:800;line-height:1}
+.stat-lbl{font-size:0.75rem;color:var(--muted);margin-top:4px}
+
+/* ── Agent log panel ── */
+.agent-log{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.agent-log-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px}
+.log-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.log-entries{padding:12px 16px;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;font-family:'Fira Code',monospace;font-size:0.78rem}
+.log-entry{display:flex;gap:10px;color:var(--muted)}
+.log-time{color:var(--muted);flex-shrink:0;opacity:.6}
+.log-agent{font-weight:600}
+.log-agent.TaskAgent{color:var(--accent)}
+.log-agent.PriorityAgent{color:var(--yellow)}
+.log-agent.AnalyticsAgent{color:var(--green)}
+.log-agent.NLPAgent{color:var(--purple)}
+.log-msg{color:var(--text)}
+
+/* ── Toast ── */
+.toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:0.85rem;display:flex;align-items:center;gap:8px;animation:toastIn .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.toast.success{border-color:var(--green)}
+.toast.error{border-color:var(--red)}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-icon{font-size:3rem;margin-bottom:12px;opacity:.4}
+
+/* ── Progress bar ── */
+.progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:3px;transition:width .4s ease}
+
+/* ── Rerank banner ── */
+.rerank-banner{background:rgba(247,201,72,.08);border:1px solid rgba(247,201,72,.25);border-radius:8px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;font-size:0.85rem;color:var(--yellow)}
+.rerank-banner.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6c8ef5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    Todo · Multi-Agent
+  </div>
+  <div class="top-stats">
+    <div class="top-stat"><strong id="ts-total">0</strong>전체</div>
+    <div class="top-stat"><strong id="ts-pending" style="color:var(--yellow)">0</strong>진행중</div>
+    <div class="top-stat"><strong id="ts-done" style="color:var(--green)">0</strong>완료</div>
+    <div class="top-stat"><strong id="ts-overdue" style="color:var(--red)">0</strong>지연</div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <button class="nav-btn active" data-view="all">
+      <span class="nav-icon">📋</span> 전체
+    </button>
+    <button class="nav-btn" data-view="pending">
+      <span class="nav-icon">⏳</span> 진행중
+    </button>
+    <button class="nav-btn" data-view="completed">
+      <span class="nav-icon">✅</span> 완료
+    </button>
+    <button class="nav-btn" data-view="overdue">
+      <span class="nav-icon">🔥</span> 지연
+    </button>
+    <div class="sidebar-divider"></div>
+    <div class="filter-label">우선순위</div>
+    <button class="nav-btn" data-priority="high">
+      <span class="priority-dot" style="background:var(--red)"></span> 높음
+    </button>
+    <button class="nav-btn" data-priority="medium">
+      <span class="priority-dot" style="background:var(--yellow)"></span> 보통
+    </button>
+    <button class="nav-btn" data-priority="low">
+      <span class="priority-dot" style="background:var(--green)"></span> 낮음
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="nav-btn" data-view="stats">
+      <span class="nav-icon">📊</span> 통계
+    </button>
+    <button class="nav-btn" data-view="top">
+      <span class="nav-icon">⚡</span> TOP 우선순위
+    </button>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- NLP Bar -->
+    <div class="nlp-bar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <div style="flex:1">
+        <input class="nlp-input" id="nlp-input" placeholder="자연어로 입력하세요 — 예: '긴급 버그 수정 할일 추가' 또는 'show statistics'" autocomplete="off"/>
+        <div class="nlp-hint">NLPAgent가 의도를 파악합니다 — <span>추가</span> · <span>목록</span> · <span>통계</span> · <span>우선순위</span> · <span>지연</span></div>
+      </div>
+    </div>
+
+    <!-- Rerank banner -->
+    <div class="rerank-banner hidden" id="rerank-banner">
+      ⚡ PriorityAgent가 모든 할일의 우선순위를 자동 재정렬했습니다.
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('rerank-banner').classList.add('hidden')">닫기</button>
+    </div>
+
+    <!-- Views -->
+    <div id="view-todos">
+      <div class="section-header">
+        <div class="section-title" id="view-title">전체 할일</div>
+        <div class="section-actions">
+          <button class="btn btn-ghost btn-sm" onclick="rerank()">⚡ 자동 정렬</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal()">+ 추가</button>
+        </div>
+      </div>
+      <div class="todo-list" id="todo-list"></div>
+    </div>
+
+    <div id="view-stats" style="display:none">
+      <div class="section-header">
+        <div class="section-title">통계 대시보드</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadStats()">↻ 새로고침</button>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="agent-log">
+        <div class="agent-log-header">
+          <div class="log-dot"></div>
+          에이전트 실시간 로그
+        </div>
+        <div class="log-entries" id="log-entries">
+          <div class="log-entry"><span class="log-msg" style="color:var(--muted)">액션을 수행하면 에이전트 로그가 표시됩니다…</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-top" style="display:none">
+      <div class="section-header">
+        <div class="section-title">⚡ 상위 우선순위 5개</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadTop()">↻ 새로고침</button>
+      </div>
+      <div class="todo-list" id="top-list"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop hidden" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">할일 추가</h2>
+    <div class="form-group">
+      <label>제목 *</label>
+      <input class="form-control" id="f-title" placeholder="할일 제목을 입력하세요"/>
+    </div>
+    <div class="form-group">
+      <label>설명</label>
+      <textarea class="form-control" id="f-desc" placeholder="선택사항"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>우선순위</label>
+        <select class="form-control" id="f-priority">
+          <option value="high">🔴 높음</option>
+          <option value="medium" selected>🟡 보통</option>
+          <option value="low">🟢 낮음</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>마감일</label>
+        <input class="form-control" id="f-due" type="date"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>태그 (쉼표 구분)</label>
+      <input class="form-control" id="f-tags" placeholder="예: bug, auth, frontend"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveTodo()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── State ──────────────────────────────────────────────────────
+let currentView = 'all';
+let currentPriority = null;
+let editingId = null;
+const agentLogs = [];
+
+// ── API ────────────────────────────────────────────────────────
+const api = {
+  async get(url) { const r = await fetch(url); return r.json(); },
+  async post(url, body) { const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); return r.json(); },
+  async patch(url, body) { const r = await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); return r.json(); },
+  async del(url) { const r = await fetch(url, { method:'DELETE' }); return r.json(); },
+};
+
+// ── Render ─────────────────────────────────────────────────────
+function priorityBadge(p) {
+  const map = { high:'🔴 높음', medium:'🟡 보통', low:'🟢 낮음' };
+  return `<span class="priority-badge p-${p}">${map[p]||p}</span>`;
+}
+
+function dueBadge(dueDate, status) {
+  if (!dueDate) return '';
+  const d = new Date(dueDate);
+  const now = new Date();
+  const overdue = d < now && status !== 'completed';
+  const str = d.toLocaleDateString('ko-KR',{month:'short',day:'numeric'});
+  return `<span class="due-badge${overdue?' overdue':''}">📅 ${str}${overdue?' (지연)':''}</span>`;
+}
+
+function renderTodo(t, showScore=false) {
+  const tags = (t.tags||[]).map(g=>`<span class="tag-chip">#${g}</span>`).join('');
+  const checked = t.status==='completed';
+  return `
+  <div class="todo-card ${checked?'completed':''}" id="tc-${t.id}">
+    <button class="todo-check ${checked?'checked':''}" onclick="toggleComplete('${t.id}','${t.status}')"></button>
+    <div class="todo-body">
+      <div class="todo-title">${esc(t.title)}</div>
+      <div class="todo-meta">
+        ${priorityBadge(t.priority)}
+        ${dueBadge(t.dueDate, t.status)}
+        ${tags}
+        ${showScore && t._score!=null ? `<span style="font-size:.7rem;color:var(--purple)">점수 ${t._score}</span>`:''}
+      </div>
+      ${t.description?`<div style="font-size:.8rem;color:var(--muted);margin-top:5px">${esc(t.description)}</div>`:''}
+    </div>
+    <div class="todo-actions">
+      <button class="icon-btn" onclick="openEdit('${t.id}')" title="수정">✏️</button>
+      <button class="icon-btn del" onclick="deleteTodo('${t.id}')" title="삭제">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function esc(s='') { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderEmpty(msg='할일이 없습니다') {
+  return `<div class="empty"><div class="empty-icon">📭</div>${msg}</div>`;
+}
+
+// ── Load todos ─────────────────────────────────────────────────
+async function loadTodos() {
+  const params = new URLSearchParams();
+  if (currentPriority) params.set('priority', currentPriority);
+
+  let todos = (await api.get(`/api/todos?${params}`)).todos || [];
+
+  if (currentView === 'pending') todos = todos.filter(t => t.status === 'pending');
+  else if (currentView === 'completed') todos = todos.filter(t => t.status === 'completed');
+  else if (currentView === 'overdue') {
+    const now = Date.now();
+    todos = todos.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed');
+  }
+
+  $('todo-list').innerHTML = todos.length
+    ? todos.map(t => renderTodo(t)).join('')
+    : renderEmpty();
+
+  await refreshTopbar();
+}
+
+async function refreshTopbar() {
+  try {
+    const { stats, overdue } = await api.get('/api/stats');
+    $('ts-total').textContent = stats.total;
+    $('ts-pending').textContent = stats.byStatus.pending;
+    $('ts-done').textContent = stats.byStatus.completed;
+    $('ts-overdue').textContent = overdue.overdueCount;
+  } catch(e){}
+}
+
+// ── Stats view ─────────────────────────────────────────────────
+async function loadStats() {
+  const { stats, rate, overdue } = await api.get('/api/stats');
+  const pct = parseInt(rate.completionRate);
+  $('stats-grid').innerHTML = `
+    <div class="stat-box"><div class="stat-num">${stats.total}</div><div class="stat-lbl">전체 할일</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--yellow)">${stats.byStatus.pending}</div><div class="stat-lbl">진행중</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--green)">${stats.byStatus.completed}</div><div class="stat-lbl">완료</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--red)">${overdue.overdueCount}</div><div class="stat-lbl">지연</div></div>
+    <div class="stat-box" style="grid-column:span 2">
+      <div class="stat-num" style="color:var(--accent)">${rate.completionRate}</div>
+      <div class="stat-lbl">완료율</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--red)">${stats.byPriority.high}</div><div class="stat-lbl">높음</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--yellow)">${stats.byPriority.medium}</div><div class="stat-lbl">보통</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--green)">${stats.byPriority.low}</div><div class="stat-lbl">낮음</div></div>
+  `;
+  addLog('AnalyticsAgent', 'GET_STATS + GET_COMPLETION_RATE + GET_OVERDUE (parallel fan-out)');
+}
+
+async function loadTop() {
+  const { top } = await api.get('/api/top?n=5');
+  $('top-list').innerHTML = top.length
+    ? top.map(t => renderTodo({ ...t, status:'pending' }, true)).join('')
+    : renderEmpty('상위 우선순위 할일이 없습니다');
+  addLog('PriorityAgent', `GET_TOP_N → ${top.length}개 항목`);
+}
+
+// ── Actions ────────────────────────────────────────────────────
+async function toggleComplete(id, status) {
+  if (status === 'completed') {
+    await api.patch(`/api/todos/${id}`, { status: 'pending', completedAt: null });
+    addLog('TaskAgent', `UPDATE_TODO [${id}] → pending`);
+  } else {
+    await api.post(`/api/todos/${id}/complete`, {});
+    addLog('TaskAgent', `COMPLETE_TODO [${id}]`);
+  }
+  toast('✅ 상태가 변경되었습니다', 'success');
+  await loadTodos();
+}
+
+async function deleteTodo(id) {
+  await api.del(`/api/todos/${id}`);
+  addLog('TaskAgent', `DELETE_TODO [${id}]`);
+  toast('🗑️ 삭제되었습니다', 'success');
+  await loadTodos();
+}
+
+async function rerank() {
+  const r = await api.post('/api/rerank', {});
+  addLog('PriorityAgent', `RERANK_ALL → ${r.reranked}개 재정렬`);
+  $('rerank-banner').classList.remove('hidden');
+  toast(`⚡ ${r.reranked}개 항목 우선순위 재정렬 완료`, 'success');
+  await loadTodos();
+}
+
+// ── Modal ──────────────────────────────────────────────────────
+function openModal() {
+  editingId = null;
+  $('modal-title').textContent = '할일 추가';
+  $('f-title').value = '';
+  $('f-desc').value = '';
+  $('f-priority').value = 'medium';
+  $('f-due').value = '';
+  $('f-tags').value = '';
+  $('modal').classList.remove('hidden');
+  $('f-title').focus();
+}
+
+async function openEdit(id) {
+  const { todo } = await api.get(`/api/todos`).then(d => {
+    const t = d.todos.find(t => t.id === id);
+    return { todo: t };
+  });
+  if (!todo) return;
+  editingId = id;
+  $('modal-title').textContent = '할일 수정';
+  $('f-title').value = todo.title;
+  $('f-desc').value = todo.description || '';
+  $('f-priority').value = todo.priority;
+  $('f-due').value = todo.dueDate ? todo.dueDate.slice(0,10) : '';
+  $('f-tags').value = (todo.tags||[]).join(', ');
+  $('modal').classList.remove('hidden');
+}
+
+function closeModal() { $('modal').classList.add('hidden'); }
+
+async function saveTodo() {
+  const title = $('f-title').value.trim();
+  if (!title) { toast('제목을 입력해주세요', 'error'); return; }
+
+  const body = {
+    title,
+    description: $('f-desc').value.trim(),
+    priority: $('f-priority').value,
+    dueDate: $('f-due').value || null,
+    tags: $('f-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+  };
+
+  if (editingId) {
+    await api.patch(`/api/todos/${editingId}`, body);
+    addLog('TaskAgent', `UPDATE_TODO [${editingId}]`);
+    toast('✏️ 수정되었습니다', 'success');
+  } else {
+    await api.post('/api/todos', body);
+    addLog('TaskAgent', `CREATE_TODO → "${title}"`);
+    toast('✅ 추가되었습니다', 'success');
+  }
+
+  closeModal();
+  await loadTodos();
+}
+
+// ── NLP ────────────────────────────────────────────────────────
+$('nlp-input').addEventListener('keydown', async e => {
+  if (e.key !== 'Enter') return;
+  const text = e.target.value.trim();
+  if (!text) return;
+  e.target.value = '';
+
+  const r = await api.post('/api/nlp', { text });
+  const { intent, priority, title } = r.nlp || {};
+
+  addLog('NLPAgent', `PARSE_COMMAND → intent:${intent}, priority:${priority}`);
+  if (r.action) addLog('TaskAgent', `${intent} (via NLP) → "${title}"`);
+
+  let msg = `[NLP] ${intent}`;
+  if (intent === 'CREATE_TODO') msg += ` — "${title}" (${priority}) 추가됨`;
+  else if (intent === 'GET_STATS') { switchView('stats'); }
+  else if (intent === 'GET_TOP_N') { switchView('top'); }
+  else if (intent === 'GET_OVERDUE') { switchView('overdue'); }
+
+  toast(`🧠 ${msg}`, 'success');
+  await loadTodos();
+});
+
+// ── Navigation ─────────────────────────────────────────────────
+function switchView(view, priority=null) {
+  currentView = view;
+  currentPriority = priority;
+
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`[data-view="${view}"]`) || document.querySelector(`[data-priority="${priority}"]`);
+  if (btn) btn.classList.add('active');
+
+  const viewIds = ['view-todos', 'view-stats', 'view-top'];
+  viewIds.forEach(id => $(id).style.display = 'none');
+
+  const titles = { all:'전체 할일', pending:'진행중', completed:'완료', overdue:'🔥 지연 할일' };
+
+  if (view === 'stats') {
+    $('view-stats').style.display = 'block';
+    loadStats();
+  } else if (view === 'top') {
+    $('view-top').style.display = 'block';
+    loadTop();
+  } else {
+    $('view-todos').style.display = 'block';
+    $('view-title').textContent = priority ? `${priority === 'high' ? '🔴' : priority === 'medium' ? '🟡' : '🟢'} ${priority==='high'?'높음':priority==='medium'?'보통':'낮음'} 우선순위` : (titles[view] || view);
+    loadTodos();
+  }
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const v = btn.dataset.view;
+    const p = btn.dataset.priority;
+    if (p) switchView('all', p);
+    else switchView(v);
+  });
+});
+
+// ── Agent log ──────────────────────────────────────────────────
+function addLog(agent, msg) {
+  const now = new Date().toTimeString().slice(0,8);
+  agentLogs.unshift({ agent, msg, time: now });
+  if (agentLogs.length > 30) agentLogs.pop();
+  const el = $('log-entries');
+  if (el) {
+    el.innerHTML = agentLogs.map(l =>
+      `<div class="log-entry"><span class="log-time">${l.time}</span><span class="log-agent ${l.agent}">${l.agent}</span><span class="log-msg">${esc(l.msg)}</span></div>`
+    ).join('');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') openModal();
+});
+
+// ── Modal backdrop click ───────────────────────────────────────
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+
+// ── Init ───────────────────────────────────────────────────────
+loadTodos();
+</script>
+</body>
+</html>

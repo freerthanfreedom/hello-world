@@ -5,8 +5,17 @@
   "main": "src/Orchestrator.js",
   "scripts": {
     "demo": "node src/demo.js",
+    "start": "node src/server.js",
     "test": "node src/demo.js"
   },
-  "keywords": ["todo", "multi-agent", "orchestration", "ai"],
-  "license": "MIT"
+  "keywords": [
+    "todo",
+    "multi-agent",
+    "orchestration",
+    "ai"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
 }
