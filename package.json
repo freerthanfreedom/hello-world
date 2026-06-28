@@ -1,0 +1,12 @@
+{
+  "name": "todo-multi-agent-orchestration",
+  "version": "1.0.0",
+  "description": "Multi-agent orchestration system for a Todo app",
+  "main": "src/Orchestrator.js",
+  "scripts": {
+    "demo": "node src/demo.js",
+    "test": "node src/demo.js"
+  },
+  "keywords": ["todo", "multi-agent", "orchestration", "ai"],
+  "license": "MIT"
+}
